@@ -11,6 +11,14 @@ stdin.addListener("data", function(d) {
 	}
 });
 
+///////////Set these values first!////////////
+global.zecwal = "wallet address here (zec flypool only)";
+global.reportchannelserverid = "discord server id here";
+global.reportchannelid = "discord channel id here (the channel you want daily reports to be posted in";
+/////////////////////////////////////////////
+
+global.already == false;
+
 try {
 	var Discord = require("Discord.js");
 } catch (e) {
@@ -18,12 +26,93 @@ try {
 	process.exit();
 }
 
-var colors = require('colors');
+function checktime () {
+	var channel = bot.servers.find("id",global.reportchannelserverid).channels.find("id",global.reportchannelid);
+	var current = new Date();
+	var current = current.getHours();
+	if (current == 8 && global.already == true) {
+		global.already == false;
+		console.log("Resetting Daily Report...");
+	}
+	if (current == 7 && global.already == false) {
+		console.log("Sending Daily Report...");
+		global.already == true;
+		var zecpermin = (global.zecbtcPerMin / global.zecbtcnow);
+		var zecperhour = (zecpermin * 60);
+		var zecperweek = ((zecperhour * 24) * 7);
+		var zecpermonth = (zecperweek * 4);
+		var zecperyear = (zecpermonth * 12);
+		if (global.zeccaddif < 0) {
+        	var arrow1 = "arrow_down_small"
+        } else {
+        	var arrow1 = "arrow_up_small"
+       	}
+		if (global.zecusddif < 0) {
+        	var arrow2 = "arrow_down_small"
+        } else {
+       		var arrow2 = "arrow_up_small"
+        }
+		var resp = {embed: {
+			color: 3447003,
+			title: "Report for:",
+			description: "" + global.zecwal,
+			fields: [{
+				"name": "Estimated income per year",
+				"value": ":flag_ca: $" + (zecperyear*global.zeccadnow).toFixed(2) + " \n:flag_us: $" + (zecperyear*global.zecusdnow).toFixed(2) + "\n:dollar: " + (zecperyear*global.zecbtcnow).toFixed(6) + " BTC"
+			},
+			{
+				"name": "Wallet Balance",
+				"value": ":dollar: " + global.zecbal + " ZEC" + " - " + global.zectran + " Total Transactions\n" + ":flag_ca: $" + (parseInt(global.zecbal)*global.zeccadnow).toFixed(2) + "\n:flag_us: $" + (parseInt(global.zecbal)*global.zecusdnow).toFixed(2)
+			},
+			{
+				"name": "Hashrates",
+				"value": "Average: " + global.zecmavg + " H/s\nCurrent: " + global.zecmcur
+			},
+			{
+				"name": "Balances",
+				"value": "Unpaid Balance: " + global.zecmunpaid
+			},
+			{
+				"name": "ZEC to CAD",
+				"value": ":flag_ca: $" + global.zeccadnow.toFixed(2) + "\n:" + arrow1 + ": $" + (Math.round(global.zeccaddif * 100) / 100) + " (" + (Math.round(global.zeccadpers * 100) / 100) + "%)"
+			},
+			{
+				"name": "ZEC to USD",
+				"value": ":flag_us: $" + global.zecusdnow.toFixed(2) + "\n:" + arrow2 + ": $" + (Math.round(global.zecusddif * 100) / 100) + " (" + (Math.round(global.zecusdpers * 100) / 100) + "%)"
+			}],
+			timestamp: new Date(),
+			footer: {
+				icon_url: bot.user.avatarURL,
+				text: "Daily Report"
+			}
+		}};
+		channel.send(resp);
+		return;
+	}
+}
 
 if (typeof localStorage === "undefined" || localStorage === null) {
 	var LocalStorage = require('node-localstorage').LocalStorage;
 	localStorage = new LocalStorage('./scratch');
 }
+
+setInterval(function(){
+	if (global.reports == "true") {
+		checktime();
+	}
+},5000);
+
+var test = localStorage.getItem("reports");
+if (!test) {
+	console.log("Reports value not set! Setting to default: False");
+	localStorage.setItem("reports","false");
+	global.reports = localStorage.getItem("reports");
+} else {
+	global.reports = localStorage.getItem("reports");
+}
+
+var colors = require('colors');
+
 function getjson (url,call) {
 	http = require("https");
 	 http.get(url, function(res){
@@ -40,31 +129,83 @@ function getjson (url,call) {
 }).on('error', function(e){
 });
 }
-var target = 235.2;
-target = Math.round(target * 100) / 100;
-if (target.toString().indexOf(".") == -1) {
-	console.log("$"+target+".00");
-} else {
-	test2 = target.toString().substring(target.toString().indexOf(".")+1,target.length);
-	if (test2.length == 1) {
-		
-	}	
-}
+
+getjson("https://zcash.flypool.org/api/miner_new/" + global.zecwal,function (res) {
+	global.zecmavg = parseFloat(res.avgHashrate).toFixed(1);
+	global.zecmcur = res.hashRate;
+	global.zecmunpaid = (parseFloat(res.unpaid)/ 100000000) + " ZEC";
+	global.zecworkers = res.workers;
+	global.zecbtcPerMin = res.btcPerMin;
+});
+
+getjson("https://insight.mercerweiss.com/api/addr/" + global.zecwal + "/?noTxList=1",function (res) {
+	global.zecbal = res.balance;
+	global.zectran = res.txApperances;
+});
+
+getjson("https://insight.mercerweiss.com/api/status?q=getInfo",function (res) {
+	global.zecdiff = res.info.difficulty;
+});
 
 getjson("https://api.cryptonator.com/api/full/zec-cad",function (res) {
-		global.zeccadnow = parseInt(res.ticker.price);
-		global.zeccaddif = parseInt(res.ticker.change);
+		global.zeccadnow = parseFloat(res.ticker.price);
+		global.zeccaddif = parseFloat(res.ticker.change);
 		global.zeccadoriginal = global.zeccadnow + (global.zeccaddif * -1);
 		global.zeccadpers = (global.zeccaddif/global.zeccadoriginal)*100;
-	});
+});
+
+getjson("https://api.cryptonator.com/api/full/zec-usd",function (res) {
+		global.zecusdnow = parseFloat(res.ticker.price);
+		global.zecusddif = parseFloat(res.ticker.change);
+		global.zecusdoriginal = global.zecusdnow + (global.zecusddif * -1);
+		global.zecusdpers = (global.zecusddif/global.zecusdoriginal)*100;
+});
+
+getjson("https://api.cryptonator.com/api/full/zec-btc",function (res) {
+		global.zecbtcnow = parseFloat(res.ticker.price);
+		global.zecbtcdif = parseFloat(res.ticker.change);
+		global.zecbtcoriginal = global.zecbtcnow + (global.zecbtcdif * -1);
+		global.zecbtcpers = (global.zecbtcdif/global.zecbtcoriginal)*100;
+});
 	
 setInterval(function () {
-	getjson("https://api.cryptonator.com/api/full/zec-cad",function (res) {
-		global.zeccadnow = parseInt(res.ticker.price);
-		global.zeccaddif = parseInt(res.ticker.change);
+	getjson("https://zcash.flypool.org/api/miner_new/" + global.zecwal,function (res) {
+	global.zecmavg = parseFloat(res.avgHashrate).toFixed(1);
+	global.zecmcur = res.hashRate;
+	global.zecmunpaid = (parseFloat(res.unpaid)/ 100000000) + " ZEC";
+	global.zecworkers = res.workers;
+	global.zecbtcPerMin = res.btcPerMin;
+});
+
+getjson("https://insight.mercerweiss.com/api/addr/" + global.zecwal + "/?noTxList=1",function (res) {
+	global.zecbal = res.balance;
+	global.zectran = res.txApperances;
+});
+
+getjson("https://insight.mercerweiss.com/api/status?q=getInfo",function (res) {
+	global.zecdiff = res.info.difficulty;
+});
+
+getjson("https://api.cryptonator.com/api/full/zec-cad",function (res) {
+		global.zeccadnow = parseFloat(res.ticker.price);
+		global.zeccaddif = parseFloat(res.ticker.change);
 		global.zeccadoriginal = global.zeccadnow + (global.zeccaddif * -1);
 		global.zeccadpers = (global.zeccaddif/global.zeccadoriginal)*100;
-	});
+});
+
+getjson("https://api.cryptonator.com/api/full/zec-usd",function (res) {
+		global.zecusdnow = parseFloat(res.ticker.price);
+		global.zecusddif = parseFloat(res.ticker.change);
+		global.zecusdoriginal = global.zecusdnow + (global.zecusddif * -1);
+		global.zecusdpers = (global.zecusddif/global.zecusdoriginal)*100;
+});
+
+getjson("https://api.cryptonator.com/api/full/zec-btc",function (res) {
+		global.zecbtcnow = parseFloat(res.ticker.price);
+		global.zecbtcdif = parseFloat(res.ticker.change);
+		global.zecbtcoriginal = global.zecbtcnow + (global.zecbtcdif * -1);
+		global.zecbtcpers = (global.zecbtcdif/global.zecbtcoriginal)*100;
+});
 },10000);
 
 try {
@@ -108,27 +249,11 @@ function listservers () {
 	}
 }
 
-function startsaver () {
-	global.saveint1 = setInterval(function () {
-		fs.writeFile('./miners.json', JSON.stringify(global.miners) , 'utf-8');
-	},700);
-}
-
-function read () {
-	fs.readFile('./miners.json', 'utf8', (err, data) => {
-  		if (err) return;
-  		global.miners = JSON.parse(data);
-	});
-}
 
 global.miners = {};
 
 bot.on('ready', () => {
 	var test = 0;
-	read();
-	setTimeout(function () {
-		startsaver();
-	}, 1700);
 	for (channel of bot.channels) {
 		var thing = channel.map(function(a) {
 			return a.type;
@@ -136,13 +261,12 @@ bot.on('ready', () => {
 		if (thing.indexOf('text') > 0) {
 			test = test + 1;
 		}
-		//bot.EvaluatedPermissions
 	}
 	var test2 = 0;
 	for (guild of bot.guilds) {
 		test2 = test2 + 1;
-		//bot.EvaluatedPermissions
 	}
+	bot.user.setGame("Use !help");
 	console.log(colors.green("Ready to begin! Serving in " + test + " Channels | " + test2 + " Servers"));
 });
 
@@ -174,37 +298,29 @@ bot.on('message', msg => {
       icon_url: bot.user.avatarURL
     },
     title: "Commands",
-    description: "Here's a list of commands - Remember, Mitzey#5500 is always here to help.",
+    description: "Here's a list of commands - Remember, Mitzey#5500 is here to help.",
     fields: [{
         name: "!zec",
         value: "Displays current statistics of ZEC"
       },
-      {
-        name: "!avg",
-        value: "Lists the current avg hash rate"
+	  {
+        name: "!reports",
+        value: "Toggles daily reports"
       },
       {
-        name: "!cur",
-        value: "Lists the current hash rate"
+        name: "!zecmine",
+        value: "Shows all kinds of statistics found for the miner / wallet"
       },
       {
-        name: "!miners",
-        value: "Lists all the miners found on the address alongside their current and average hash rates and shares (including those that are no longer in service)"
+        name: "!zecminers",
+        value: "Lists all the miners found on the address alongside their current hash rates and shares"
       },
       {
-        name: "!shares",
-        value: "shows the status of shares and stuff"
-      },
-      {
-        name: "!profit",
+        name: "!zecprofit",
         value: "Estimates your current profits from /min to /hour to /year"
       },
       {
-        name: "!balances",
-        value: "Current unpaid balance"
-      },
-      {
-        name: "!account",
+        name: "!zecaccount",
         value: "shows you your current account balance"
       }
     ],
@@ -215,42 +331,216 @@ bot.on('message', msg => {
     }
   }
 };
+		var mess = msg.content.substring(1,8);
+		if (mess.indexOf("reports") > -1) {
+			if (global.reports == "true") {
+				global.reports = "false";
+				localStorage.setItem("reports","false");
+				console.log("Reports Disabled");
+				var resp = {embed: {
+				color: 3447003,
+				title: "Daily Reports:",
+				description: "These are the reports that are posted at 7AM (Bot time)",
+				fields: [{
+						"name": "Status",
+						"value": ":x: Daily reports have been turned off"
+					}
+				],
+				timestamp: new Date(),
+				footer: {
+					icon_url: bot.user.avatarURL,
+					text: "Daily Reports"
+				}
+			}};
+			msg.channel.send(resp);
+				return;
+			}
+			if (global.reports == "false") {
+				global.reports = "true";
+				localStorage.setItem("reports","true");
+				console.log("Reports Enabled");
+				var resp = {embed: {
+				color: 3447003,
+				title: "Daily Reports:",
+				description: "These are the reports that are posted at 7AM (Bot time)",
+				fields: [{
+						"name": "Status",
+						"value": ":white_check_mark: Daily reports have been turned on"
+					}
+				],
+				timestamp: new Date(),
+				footer: {
+					icon_url: bot.user.avatarURL,
+					text: "Daily Reports"
+				}
+			}};
+				msg.channel.send(resp);
+				return;
+			}
+		}
 		var mess = msg.content.substring(1,5);
 		if (mess.indexOf("help") > -1) {
 			msg.author.send(helpline);
 		}
-		var mess = msg.content.substring(1,4);
-		if (global.zeccaddif < 0) {
-        		var arrow = "arrow_down_small"
-        	} else {
-        		var arrow = "arrow_up_small"
-        	}
-		var resp = {embed: {
-    color: 3447003,
-    title: "Z-Cash Values as of now",
-    description: "Here's a report on ZEC as of " + new Date(),
-    fields: [{
-        "name": "ZEC to CAD",
-        "value": ":flag_ca: $" + global.zeccadnow + "\n:" + arrow + ": $" + (Math.round(global.zeccaddif * 100) / 100) + " (" + (Math.round(global.zeccadpers * 100) / 100) + "%)"
-      },
-      {
-        "name": "ZEC to USD",
-        "value": ":flag_us: $" + global.zeccadnow + "\n:" + arrow + ": $" + global.zeccaddif + " (" + global.zeccadpers + "%)"
-      },
-      {
-        "name": "ZEC to BTC",
-        "value": ":dollar: $491.39\n:arrow_down_small: $-1.53 (-0.197%)"
-      }
-    ],
-    timestamp: new Date(),
-    footer: {
-      icon_url: bot.user.avatarURL,
-      text: "With much processing"
-    }
-  }
-};
-		if (mess.indexOf("zec") > -1) {
+		var mess = msg.content.substring(1,10);
+		if (mess.indexOf("zecprofit") > -1) {
+			var zecpermin = (global.zecbtcPerMin / global.zecbtcnow);
+			var zecperhour = (zecpermin * 60);
+			var zecperweek = ((zecperhour * 24) * 7);
+			var zecpermonth = (zecperweek * 4);
+			var zecperyear = (zecpermonth * 12);
+			var resp = {embed: {
+				color: 3447003,
+				title: "Z-Cash profit report for:",
+				description: "" + global.zecwal + "\nKeep in mind this does not factor in costs or difficulty!.",
+				fields: [{
+						"name": "Yearly",
+						"value": ":flag_ca: $" + (zecperyear*global.zeccadnow).toFixed(2) + " \n:flag_us: $" + (zecperyear*global.zecusdnow).toFixed(2) + "\n:dollar: " + (zecperyear*global.zecbtcnow).toFixed(6) + " BTC"
+					},
+					{
+						"name": "Monthly",
+						"value": ":flag_ca: $" + (zecpermonth*global.zeccadnow).toFixed(2) + " \n:flag_us: $" + (zecpermonth*global.zecusdnow).toFixed(2) + "\n:dollar: " + (zecpermonth*global.zecbtcnow).toFixed(6) + " BTC"
+					},
+					{
+						"name": "Weekly",
+						"value": ":flag_ca: $" + (zecperweek*global.zeccadnow).toFixed(2) + " \n:flag_us: $" + (zecperweek*global.zecusdnow).toFixed(2) + "\n:dollar: " + (zecperweek*global.zecbtcnow).toFixed(6) + " BTC"
+					},
+					{
+						"name": "Hourly",
+						"value": ":flag_ca: $" + (zecperhour*global.zeccadnow).toFixed(2) + " \n:flag_us: $" + (zecperhour*global.zecusdnow).toFixed(2) + "\n:dollar: " + (zecperhour*global.zecbtcnow).toFixed(6) + " BTC"
+					}
+				],
+				timestamp: new Date(),
+				footer: {
+					icon_url: bot.user.avatarURL,
+					text: "ZEC Mine report"
+				}
+			}};
 			msg.channel.send(resp);
+			return;
+		}
+		var mess = msg.content.substring(1,10);
+		if (mess.indexOf("zecminers") > -1) {
+			var miners = [];
+			for (n in global.zecworkers) {
+				var input = global.zecworkers[n].workerLastSubmitTime;
+				current = new Date;
+				current = ((current.valueOf() / 1000) - 86400);
+				var test = input - current;
+				if (test <= 0) {
+					//don't watch
+				} else {
+					miners.push({"name": global.zecworkers[n].worker ,"value":"Hashrate: " + global.zecworkers[n].hashrate + "\nShares: " + global.zecworkers[n].validShares + "/" + global.zecworkers[n].invalidShares + "(" + ((global.zecworkers[n].validShares / (global.zecworkers[n].validShares + global.zecworkers[n].invalidShares))*100).toFixed(0) + "%)"});
+				}
+			}
+			var resp = {embed: {
+				color: 3447003,
+				title: "Z-Cash miners on:",
+				description: "" + global.zecwal,
+				fields: miners,
+				timestamp: new Date(),
+				footer: {
+					icon_url: bot.user.avatarURL,
+					text: "ZEC Mine report"
+				}
+			}};
+			msg.channel.send(resp);
+			return;
+		}
+		var mess = msg.content.substring(1,8);
+		if (mess.indexOf("zecmine") > -1) {
+			var resp = {embed: {
+				color: 3447003,
+				title: "Z-Cash mining report for:",
+				description: "" + global.zecwal,
+				fields: [{
+						"name": "Hashrates",
+						"value": "Average: " + global.zecmavg + " H/s\nCurrent: " + global.zecmcur
+					},
+					{
+						"name": "Balances",
+						"value": "Unpaid Balance: " + global.zecmunpaid
+					}
+				],
+				timestamp: new Date(),
+				footer: {
+					icon_url: bot.user.avatarURL,
+					text: "ZEC Mine report"
+				}
+			}};
+			msg.channel.send(resp);
+			return;
+		}
+		var mess = msg.content.substring(1,11);
+		if (mess.indexOf("zecaccount") > -1) {
+			var resp = {embed: {
+				color: 3447003,
+				title: "Z-Cash account report for:",
+				description: "" + global.zecwal,
+				fields: [{
+						"name": "Current balance",
+						"value": global.zecbal + " ZEC"
+					},
+					{
+						"name": "No. of transactions",
+						"value": global.zectran
+					},
+					{
+						"name": "Account balance conversions",
+						"value": ":flag_ca: $" + (parseInt(global.zecbal)*global.zeccadnow).toFixed(2) + "\n:flag_us: $" + (parseInt(global.zecbal)*global.zecusdnow).toFixed(2) + "\n:dollar: " +  (parseInt(global.zecbal)*global.zecbtcnow) + " BTC"
+					}
+				],
+				timestamp: new Date(),
+				footer: {
+					icon_url: bot.user.avatarURL,
+					text: "ZEC account"
+				}
+			}};
+			msg.channel.send(resp);
+			return;
+		}
+		var mess = msg.content.substring(1,4);
+		if (mess.indexOf("zec") > -1) {
+			if (global.zeccaddif < 0) {
+        		var arrow1 = "arrow_down_small"
+        	} else {
+        		var arrow1 = "arrow_up_small"
+        	}
+			if (global.zecusddif < 0) {
+        		var arrow2 = "arrow_down_small"
+        	} else {
+        		var arrow2 = "arrow_up_small"
+        	}
+			if (global.zecbtcdif < 0) {
+        		var arrow3 = "arrow_down_small"
+        	} else {
+        		var arrow3 = "arrow_up_small"
+        	}
+			var resp = {embed: {
+				color: 3447003,
+				title: "Z-Cash Difficulty:",
+				description: " " + global.zecdiff,
+				fields: [{
+						"name": "ZEC to CAD",
+						"value": ":flag_ca: $" + global.zeccadnow.toFixed(2) + "\n:" + arrow1 + ": $" + (Math.round(global.zeccaddif * 100) / 100) + " (" + (Math.round(global.zeccadpers * 100) / 100) + "%)"
+					},
+					{
+						"name": "ZEC to USD",
+						"value": ":flag_us: $" + global.zecusdnow.toFixed(2) + "\n:" + arrow2 + ": $" + (Math.round(global.zecusddif * 100) / 100) + " (" + (Math.round(global.zecusdpers * 100) / 100) + "%)"
+					},
+					{
+						"name": "ZEC to BTC",
+						"value": ":dollar: " + global.zecbtcnow + "BTC\n:" + arrow3 + ": " + global.zecbtcdif + "BTC (" + (Math.round(global.zecbtcpers * 100) / 100) + "%)"
+					}
+				],
+				timestamp: new Date(),
+				footer: {
+					icon_url: bot.user.avatarURL,
+					text: "ZEC report"
+				}
+			}};
+			msg.channel.send(resp);
+			return;
 		}
 	}
 });
