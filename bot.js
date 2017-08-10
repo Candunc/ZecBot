@@ -24,7 +24,7 @@ try {
 }
 
 function checktime () {
-	var channel = bot.servers.find("id",global.reportchannelserverid).channels.find("id",global.reportchannelid);
+	var channel = bot.guilds.find("id",global.reportchannelserverid).channels.find("id",global.reportchannelid);
 	var current = new Date();
 	var current = current.getHours();
 	if (current == 8 && global.already == true) {
