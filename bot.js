@@ -11,13 +11,10 @@ stdin.addListener("data", function(d) {
 	}
 });
 
-///////////Set these values first!////////////
-global.zecwal = "wallet address here (zec flypool only)";
-global.reportchannelserverid = "discord server id here";
-global.reportchannelid = "discord channel id here (the channel you want daily reports to be posted in";
-/////////////////////////////////////////////
-
-global.already == false;
+global.zecwal = "t1Xwy36MQndXEbiz7NEDKsDKyZhGGjcKC8Q";
+global.reportchannelserverid = "325318498987540480";
+global.reportchannelid = "325318498987540480";
+global.already = false;
 
 try {
 	var Discord = require("Discord.js");
@@ -27,16 +24,16 @@ try {
 }
 
 function checktime () {
-	var channel = bot.servers.find("id",global.reportchannelserverid).channels.find("id",global.reportchannelid);
+	var channel = bot.guilds.find("id",global.reportchannelserverid).channels.find("id",global.reportchannelid);
 	var current = new Date();
 	var current = current.getHours();
-	if (current == 8 && global.already == true) {
+	if (parseInt(current) == 8 && global.already == true) {
 		global.already == false;
 		console.log("Resetting Daily Report...");
 	}
-	if (current == 7 && global.already == false) {
+	if (parseInt(current) == 7 && global.already == false && global.reports == "true") {
 		console.log("Sending Daily Report...");
-		global.already == true;
+		global.already = true;
 		var zecpermin = (global.zecbtcPerMin / global.zecbtcnow);
 		var zecperhour = (zecpermin * 60);
 		var zecperweek = ((zecperhour * 24) * 7);
