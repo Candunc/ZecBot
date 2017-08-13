@@ -1,0 +1,18 @@
+{
+	"name": "mitzey-zec-bot",
+	"version": "0.0.1",
+	"description": "",
+	"main": "bot.js",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/mitzey234/ZecBot.git"
+	},
+	"dependencies": {
+		"colors": "^1.1.2",
+		"discord.js": "^11.1.0",
+		"is-online": "^7.0.0",
+		"node-localstorage": "^1.3.0",
+		"request": "^2.81.0",
+		"system-sleep": "^1.3.5"
+	}
+}
