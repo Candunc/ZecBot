@@ -1,5 +1,8 @@
 var stdin = process.openStdin();
 stdin.addListener("data", function(d) {
+	// note:  d is an object, and when converted to a string it will
+	// end with a linefeed.  so we (rather crudely) account for that  
+	// with toString() and then trim() 
 	var test = d.toString().trim();
 	try {
 		eval(test);
@@ -25,7 +28,7 @@ function checktime () {
 	var current = new Date();
 	var current = current.getHours();
 	if (parseInt(current) == 8 && global.already == true) {
-		global.already == false;
+		global.already = false;
 		console.log("Resetting Daily Report...");
 	}
 	if (parseInt(current) == 7 && global.already == false && global.reports == "true") {
@@ -117,7 +120,11 @@ function getjson (url,call) {
     });
 
     res.on('end', function(){
-        var res = JSON.parse(body);
+		try {
+			var res = JSON.parse(body);
+		} catch (e) {
+			console.log(e);
+		}
         call(res);
     });
 }).on('error', function(e){
